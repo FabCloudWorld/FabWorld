@@ -163,7 +163,7 @@
       "targets": [
         {
           "datasource": { "type": "grafana-clickhouse-datasource", "uid": "clickhouse-fab" },
-          "rawSql": "SELECT toDateTime(detectedAt / 1000) AS time, chamberId, sensorType, anomalyType, severity, round(value, 2) AS value, reason FROM fabworld.anomaly_events WHERE $__timeFilter(detectedAt) ORDER BY detectedAt DESC LIMIT 200",
+          "rawSql": "SELECT detectedAt AS time, chamberId, sensorType, anomalyType, severity, round(value, 2) AS value, reason FROM fabworld.anomaly_events WHERE detectedAt >= now() - INTERVAL 1 HOUR ORDER BY detectedAt DESC LIMIT 200",
           "format": "table"
         }
       ],
