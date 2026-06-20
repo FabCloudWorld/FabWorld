@@ -1,0 +1,195 @@
+{
+  "annotations": { "list": [] },
+  "editable": true,
+  "graphTooltip": 1,
+  "id": null,
+  "links": [],
+  "refresh": "10s",
+  "schemaVersion": 39,
+  "tags": ["fab-world"],
+  "templating": {
+    "list": [
+      {
+        "current": { "value": "CVD-A1", "text": "CVD-A1" },
+        "hide": 0,
+        "includeAll": false,
+        "name": "chamberId",
+        "options": [
+          { "selected": true,  "text": "CVD-A1",  "value": "CVD-A1" },
+          { "selected": false, "text": "CVD-A2",  "value": "CVD-A2" },
+          { "selected": false, "text": "PVD-B1",  "value": "PVD-B1" },
+          { "selected": false, "text": "PVD-B2",  "value": "PVD-B2" },
+          { "selected": false, "text": "ETCH-C1", "value": "ETCH-C1" },
+          { "selected": false, "text": "ETCH-C2", "value": "ETCH-C2" },
+          { "selected": false, "text": "INSP-D1", "value": "INSP-D1" },
+          { "selected": false, "text": "INSP-D2", "value": "INSP-D2" },
+          { "selected": false, "text": "CMP-E1",  "value": "CMP-E1" },
+          { "selected": false, "text": "CMP-E2",  "value": "CMP-E2" }
+        ],
+        "query": "CVD-A1,CVD-A2,PVD-B1,PVD-B2,ETCH-C1,ETCH-C2,INSP-D1,INSP-D2,CMP-E1,CMP-E2",
+        "type": "custom",
+        "label": "Chamber"
+      },
+      {
+        "current": { "value": "temp", "text": "temp" },
+        "hide": 0,
+        "includeAll": false,
+        "name": "sensorType",
+        "options": [
+          { "selected": true, "text": "temp",         "value": "temp" },
+          { "selected": false, "text": "pressure",    "value": "pressure" },
+          { "selected": false, "text": "rf_power",    "value": "rf_power" },
+          { "selected": false, "text": "gas_flow",    "value": "gas_flow" },
+          { "selected": false, "text": "bias_voltage","value": "bias_voltage" }
+        ],
+        "query": "temp,pressure,rf_power,gas_flow,bias_voltage",
+        "type": "custom",
+        "label": "Sensor"
+      }
+    ]
+  },
+  "time": { "from": "now-1h", "to": "now" },
+  "timepicker": {},
+  "timezone": "browser",
+  "title": "FAB WORLD Monitor",
+  "uid": "fab-world-main",
+  "version": 1,
+  "panels": [
+    {
+      "id": 1,
+      "title": "Throughput (events/min)",
+      "type": "timeseries",
+      "gridPos": { "h": 7, "w": 12, "x": 0, "y": 0 },
+      "datasource": { "type": "grafana-clickhouse-datasource", "uid": "clickhouse-fab" },
+      "targets": [
+        {
+          "datasource": { "type": "grafana-clickhouse-datasource", "uid": "clickhouse-fab" },
+          "rawSql": "SELECT minute AS time, sum(cnt) AS events FROM fabworld.sensor_1min_agg WHERE minute >= $__fromTime AND minute <= $__toTime GROUP BY minute ORDER BY minute",
+          "format": "table"
+        }
+      ],
+      "fieldConfig": {
+        "defaults": {
+          "unit": "short",
+          "color": { "mode": "palette-classic" },
+          "custom": { "lineWidth": 2, "fillOpacity": 10 }
+        }
+      },
+      "options": { "tooltip": { "mode": "multi" } }
+    },
+    {
+      "id": 2,
+      "title": "Anomaly Count (last 1h)",
+      "type": "stat",
+      "gridPos": { "h": 4, "w": 6, "x": 12, "y": 0 },
+      "datasource": { "type": "grafana-clickhouse-datasource", "uid": "clickhouse-fab" },
+      "targets": [
+        {
+          "datasource": { "type": "grafana-clickhouse-datasource", "uid": "clickhouse-fab" },
+          "rawSql": "SELECT count() AS value FROM fabworld.anomaly_events WHERE detectedAt >= now() - INTERVAL 1 HOUR",
+          "format": "table"
+        }
+      ],
+      "fieldConfig": {
+        "defaults": {
+          "unit": "short",
+          "color": { "mode": "thresholds" },
+          "thresholds": {
+            "mode": "absolute",
+            "steps": [
+              { "color": "green", "value": null },
+              { "color": "yellow", "value": 10 },
+              { "color": "red", "value": 50 }
+            ]
+          }
+        }
+      },
+      "options": { "reduceOptions": { "calcs": ["lastNotNull"] }, "colorMode": "background", "graphMode": "none" }
+    },
+    {
+      "id": 3,
+      "title": "HIGH Severity Anomalies (last 1h)",
+      "type": "stat",
+      "gridPos": { "h": 4, "w": 6, "x": 18, "y": 0 },
+      "datasource": { "type": "grafana-clickhouse-datasource", "uid": "clickhouse-fab" },
+      "targets": [
+        {
+          "datasource": { "type": "grafana-clickhouse-datasource", "uid": "clickhouse-fab" },
+          "rawSql": "SELECT count() AS value FROM fabworld.anomaly_events WHERE severity = 'HIGH' AND detectedAt >= now() - INTERVAL 1 HOUR",
+          "format": "table"
+        }
+      ],
+      "fieldConfig": {
+        "defaults": {
+          "unit": "short",
+          "color": { "mode": "thresholds" },
+          "thresholds": {
+            "mode": "absolute",
+            "steps": [
+              { "color": "green", "value": null },
+              { "color": "red", "value": 1 }
+            ]
+          }
+        }
+      },
+      "options": { "reduceOptions": { "calcs": ["lastNotNull"] }, "colorMode": "background", "graphMode": "none" }
+    },
+    {
+      "id": 4,
+      "title": "Sensor Trend — $chamberId / $sensorType",
+      "type": "timeseries",
+      "gridPos": { "h": 8, "w": 12, "x": 0, "y": 7 },
+      "datasource": { "type": "grafana-clickhouse-datasource", "uid": "clickhouse-fab" },
+      "targets": [
+        {
+          "datasource": { "type": "grafana-clickhouse-datasource", "uid": "clickhouse-fab" },
+          "rawSql": "SELECT toStartOfMinute(timestamp) AS time, avg(value) AS value FROM fabworld.sensor_raw WHERE $__timeFilter(timestamp) AND chamberId = '$chamberId' AND sensorType = '$sensorType' GROUP BY time ORDER BY time",
+          "format": "table"
+        }
+      ],
+      "fieldConfig": {
+        "defaults": {
+          "color": { "mode": "palette-classic" },
+          "custom": { "lineWidth": 2, "fillOpacity": 10 }
+        }
+      }
+    },
+    {
+      "id": 5,
+      "title": "Recent Anomaly Events",
+      "type": "table",
+      "gridPos": { "h": 8, "w": 12, "x": 12, "y": 7 },
+      "datasource": { "type": "grafana-clickhouse-datasource", "uid": "clickhouse-fab" },
+      "targets": [
+        {
+          "datasource": { "type": "grafana-clickhouse-datasource", "uid": "clickhouse-fab" },
+          "rawSql": "SELECT toDateTime(detectedAt / 1000) AS time, chamberId, sensorType, anomalyType, severity, round(value, 2) AS value, reason FROM fabworld.anomaly_events WHERE $__timeFilter(detectedAt) ORDER BY detectedAt DESC LIMIT 200",
+          "format": "table"
+        }
+      ],
+      "fieldConfig": {
+        "defaults": { "custom": { "align": "left" } },
+        "overrides": [
+          {
+            "matcher": { "id": "byName", "options": "severity" },
+            "properties": [
+              {
+                "id": "custom.displayMode",
+                "value": "color-background"
+              },
+              {
+                "id": "mappings",
+                "value": [
+                  { "type": "value", "options": { "HIGH":   { "color": "red",    "index": 0 } } },
+                  { "type": "value", "options": { "MEDIUM": { "color": "yellow", "index": 1 } } },
+                  { "type": "value", "options": { "LOW":    { "color": "green",  "index": 2 } } }
+                ]
+              }
+            ]
+          }
+        ]
+      },
+      "options": { "sortBy": [{ "displayName": "time", "desc": true }] }
+    }
+  ]
+}

@@ -1,0 +1,850 @@
+<!DOCTYPE html>
+<html lang="ko">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>FAB WORLD — CloudClub</title>
+<style>
+@import url('https://fonts.googleapis.com/css2?family=Press+Start+2P&display=swap');
+*{box-sizing:border-box;margin:0;padding:0}
+html,body{width:100%;height:100%;background:#06060f;display:flex;align-items:center;justify-content:center;overflow:hidden}
+#root{display:flex;flex-direction:column;width:100vw;height:100vh;max-width:900px;max-height:700px;background:#06060f;border-radius:0;overflow:hidden;font-family:'Press Start 2P',monospace}
+#hud{flex-shrink:0;background:#03030a;border-bottom:2px solid #2a4a7a;padding:5px 12px;display:flex;align-items:center;justify-content:space-between;gap:4px;flex-wrap:wrap}
+.htitle{color:#ffe066;font-size:7px;letter-spacing:.8px;white-space:nowrap}
+.hstats{display:flex;gap:10px;flex-wrap:wrap;align-items:center}
+.hs{font-size:5.5px;display:flex;gap:3px;align-items:center}
+.hs .k{color:#3a5566}.hs .v{color:#4aff91}
+.hs.al .v{color:#ff5555}
+.hs.cc{align-items:center;gap:4px}
+.cc-cloud{display:inline-block;width:18px;height:11px;background:#4a8aff;border-radius:6px;position:relative;margin-right:2px}
+.cc-cloud::before{content:'';position:absolute;width:10px;height:10px;background:#4a8aff;border-radius:50%;top:-5px;left:2px}
+.cc-cloud::after{content:'';position:absolute;width:8px;height:8px;background:#4a8aff;border-radius:50%;top:-4px;left:8px}
+#game-area{flex:1;position:relative;overflow:hidden;background:#08081c;min-height:0}
+canvas#cv{display:block;width:100%;height:100%}
+#hint{position:absolute;bottom:5px;left:50%;transform:translateX(-50%);background:rgba(0,0,0,.75);border:1px solid #2a4a6a;border-radius:3px;padding:3px 8px;font-size:5px;color:#4a6a8a;white-space:nowrap;pointer-events:none}
+#tip{position:absolute;top:6px;left:50%;transform:translateX(-50%);background:rgba(0,4,16,.92);border:1px solid #ffe066;border-radius:3px;padding:4px 12px;font-size:6px;color:#ffe066;display:none;pointer-events:none;white-space:nowrap}
+#panel{flex-shrink:0;background:#03030a;border-top:2px solid #2a4a7a;padding:6px 12px;display:flex;flex-direction:column;gap:4px}
+#panel-top{display:flex;align-items:center;gap:8px;flex-wrap:wrap}
+#sinfo{font-size:5.5px;color:#334455;flex:1}
+#sinfo span{color:#ffe066}
+#btns{display:flex;gap:5px}
+.gb{font-family:'Press Start 2P',monospace;font-size:5.5px;padding:5px 9px;border:1.5px solid;cursor:pointer;border-radius:3px;transition:all .1s;white-space:nowrap}
+.gb:hover{transform:translateY(-1px);opacity:.85}
+.gb.ok{border-color:#44cc77;color:#44cc77;background:#44cc7710}
+.gb.ng{border-color:#ff4444;color:#ff6666;background:#ff444410}
+.gb.cl{border-color:#334;color:#445;background:transparent}
+#tabs{display:flex;gap:4px;flex-wrap:wrap}
+.ctab{font-family:'Press Start 2P',monospace;font-size:5px;padding:3px 6px;border:1px solid #1a2a3a;background:transparent;color:#3a5566;cursor:pointer;border-radius:2px;transition:all .1s}
+.ctab:hover{border-color:#4a9eff;color:#4a9eff}
+.ctab.sel{border-color:#ffe066;color:#ffe066}
+.ctab.err{border-color:#ff4444;color:#ff6666;animation:blk .5s step-end infinite}
+@keyframes blk{0%,100%{opacity:1}50%{opacity:.15}}
+#logbox{background:#000810;border:1px solid #0f2035;border-radius:3px;padding:5px 8px;height:46px;overflow-y:auto;font-size:5.5px;line-height:1.9}
+.ln{color:#4aff91}.le{color:#ff6666}.li{color:#4a9eff}
+</style>
+</head>
+<body>
+<div id="root">
+  <div id="hud">
+    <div class="htitle">☁ FAB WORLD — CloudClub CLEAN ROOM 7F</div>
+    <div class="hstats">
+      <div class="hs cc"><span class="cc-cloud"></span><span class="k">CC</span><span class="v">CloudClub</span></div>
+      <div class="hs"><span class="k">WAFER</span><span class="v" id="h-wfr">W-0042</span></div>
+      <div class="hs"><span class="k">TEMP</span><span class="v" id="h-tmp">320°C</span></div>
+      <div class="hs"><span class="k">PRESS</span><span class="v" id="h-prs">2.14Pa</span></div>
+      <div class="hs al"><span class="k">ALARM</span><span class="v" id="h-alm">0</span></div>
+      <div class="hs"><span class="k">YIELD</span><span class="v" id="h-yld">98.4%</span></div>
+    </div>
+  </div>
+
+  <div id="game-area">
+    <canvas id="cv"></canvas>
+    <div id="hint">↑↓←→ / WASD 이동 &nbsp;|&nbsp; Space: 상호작용 &nbsp;|&nbsp; Tab: 미니맵</div>
+    <div id="tip"></div>
+  </div>
+
+  <div id="panel">
+    <div id="panel-top">
+      <div id="sinfo">선택: <span id="sname">기계 앞에서 Space를 누르세요</span></div>
+      <div id="btns">
+        <button class="gb ok" onclick="doNormal()">▶ 정상 공정</button>
+        <button class="gb ng" onclick="doAnomaly()">⚠ 이상 주입</button>
+        <button class="gb cl" onclick="clearLog()">✕ 클리어</button>
+      </div>
+    </div>
+    <div id="tabs">
+      <button class="ctab" data-id="0">CVD-A1</button>
+      <button class="ctab" data-id="1">CVD-A2</button>
+      <button class="ctab" data-id="2">PVD-B1</button>
+      <button class="ctab" data-id="3">PVD-B2</button>
+      <button class="ctab" data-id="4">ETCH-C1</button>
+      <button class="ctab" data-id="5">ETCH-C2</button>
+      <button class="ctab" data-id="6">INSP-D1</button>
+      <button class="ctab" data-id="7">INSP-D2</button>
+      <button class="ctab" data-id="8">CMP-E1</button>
+      <button class="ctab" data-id="9">CMP-E2</button>
+    </div>
+    <div id="logbox"><div class="li">[ BOOT ] FAB WORLD — CloudClub Edition 초기화 완료.</div></div>
+  </div>
+</div>
+
+<script>
+const cv = document.getElementById('cv');
+const ct = cv.getContext('2d');
+
+function resize() {
+  const wrap = document.getElementById('game-area');
+  cv.width = wrap.clientWidth;
+  cv.height = wrap.clientHeight;
+}
+resize();
+window.addEventListener('resize', resize);
+
+// ── CONSTANTS ──
+const TW = 54, TH = 27;
+const GC = 18, GR = 16;
+const SPEED = 0.06;
+
+function ix(c, r) { return cv.width / 2 + (c - r) * TW / 2; }
+function iy(c, r) { return 90 + (c + r) * TH / 2; }
+
+// ── STATE ──
+let tick = 0, selId = null, alarmSet = new Set();
+let px = 9, py = 8;
+let camX = 0, camY = 0;
+let keys = {}, nearChamber = null;
+let showMinimap = false;
+let clouds = [];
+
+// ── CHAMBERS ──
+const chambers = [
+  {id:0,name:'CVD-A1',c:2,r:2,type:'CVD',col:'#122860',top:'#1e3f90',acc:'#4a9eff',desc:'Chemical Vapor Deposition'},
+  {id:1,name:'CVD-A2',c:2,r:6,type:'CVD',col:'#122860',top:'#1e3f90',acc:'#4a9eff',desc:'Chemical Vapor Deposition'},
+  {id:2,name:'PVD-B1',c:6,r:2,type:'PVD',col:'#1e1050',top:'#301880',acc:'#9966ff',desc:'Physical Vapor Deposition'},
+  {id:3,name:'PVD-B2',c:6,r:6,type:'PVD',col:'#1e1050',top:'#301880',acc:'#9966ff',desc:'Physical Vapor Deposition'},
+  {id:4,name:'ETCH-C1',c:10,r:2,type:'ETCH',col:'#3a0e0e',top:'#601515',acc:'#ff6633',desc:'Plasma Etching'},
+  {id:5,name:'ETCH-C2',c:10,r:6,type:'ETCH',col:'#3a0e0e',top:'#601515',acc:'#ff6633',desc:'Plasma Etching'},
+  {id:6,name:'INSP-D1',c:14,r:2,type:'INSP',col:'#0e2e10',top:'#175020',acc:'#33ff77',desc:'Wafer Inspection'},
+  {id:7,name:'INSP-D2',c:14,r:6,type:'INSP',col:'#0e2e10',top:'#175020',acc:'#33ff77',desc:'Wafer Inspection'},
+  {id:8,name:'CMP-E1', c:6, r:11,type:'CMP', col:'#2a1800',top:'#4a2c00',acc:'#ffaa22',desc:'Chemical Mechanical Planarization'},
+  {id:9,name:'CMP-E2', c:10,r:11,type:'CMP', col:'#2a1800',top:'#4a2c00',acc:'#ffaa22',desc:'Chemical Mechanical Planarization'},
+];
+
+const doors = [
+  {c:0,r:8,label:'EXIT A'},{c:17,r:8,label:'EXIT B'},{c:9,r:0,label:'LOAD PORT'}
+];
+const lamps = [];
+for(let c=3;c<GC-1;c+=4) for(let r=2;r<GR-2;r+=4) lamps.push({c,r});
+
+// ── CLOUD INIT ──
+for(let i=0;i<8;i++) clouds.push({
+  x: Math.random()*800-100, y: Math.random()*60+10,
+  w: 60+Math.random()*80, speed: 0.15+Math.random()*0.2,
+  alpha: 0.06+Math.random()*0.08
+});
+
+// ── UTILS ──
+function brt(hex, amt) {
+  let r=parseInt(hex.slice(1,3),16),g=parseInt(hex.slice(3,5),16),b=parseInt(hex.slice(5,7),16);
+  const cl=v=>Math.max(0,Math.min(255,v+amt));
+  return '#'+[cl(r),cl(g),cl(b)].map(v=>v.toString(16).padStart(2,'0')).join('');
+}
+
+function lampBright(c, r) {
+  let best=99;
+  lamps.forEach(l=>{const d=Math.hypot(c-l.c,r-l.r);if(d<best)best=d;});
+  return Math.max(0,1-best/4.5);
+}
+
+// ── DRAW CLOUD (decorative, in-world) ──
+function drawCloudDecoration(cx2, cy2, w, alpha) {
+  ct.save();
+  ct.globalAlpha = alpha;
+  ct.fillStyle = '#6aaaff';
+  const h = w * 0.38;
+  ct.beginPath();
+  ct.ellipse(cx2, cy2, w/2, h/2, 0, 0, Math.PI*2);
+  ct.ellipse(cx2 - w*0.22, cy2+2, w*0.28, h*0.55, 0, 0, Math.PI*2);
+  ct.ellipse(cx2 + w*0.22, cy2+2, w*0.28, h*0.55, 0, 0, Math.PI*2);
+  ct.fill();
+  ct.globalAlpha = alpha * 0.4;
+  ct.fillStyle = '#aaccff';
+  ct.beginPath();
+  ct.ellipse(cx2 - w*0.1, cy2 - h*0.15, w*0.3, h*0.3, 0, 0, Math.PI*2);
+  ct.fill();
+  ct.restore();
+}
+
+// ── DRAW FLOOR ──
+function drawFloorTile(c, r) {
+  const x=ix(c,r), y=iy(c,r);
+  const isWall=(c===0||r===0||c===GC-1||r===GR-1);
+  const isDoor=doors.some(d=>d.c===c&&d.r===r);
+  const isConv=(r===9);
+
+  if(isConv) return;
+
+  const lb = lampBright(c,r);
+
+  if(isWall && !isDoor) {
+    const wh=20;
+    // left wall face
+    ct.beginPath();
+    ct.moveTo(x-TW/2,y+TH/2); ct.lineTo(x-TW/2,y+TH/2-wh);
+    ct.lineTo(x,y-wh); ct.lineTo(x,y); ct.closePath();
+    ct.fillStyle='#0a0a1e'; ct.fill();
+    // right wall face
+    ct.beginPath();
+    ct.moveTo(x+TW/2,y+TH/2); ct.lineTo(x+TW/2,y+TH/2-wh);
+    ct.lineTo(x,y-wh); ct.lineTo(x,y); ct.closePath();
+    ct.fillStyle='#080818'; ct.fill();
+    // top wall face
+    ct.beginPath();
+    ct.moveTo(x,y-wh); ct.lineTo(x+TW/2,y+TH/2-wh);
+    ct.lineTo(x,y+TH-wh); ct.lineTo(x-TW/2,y+TH/2-wh); ct.closePath();
+    ct.fillStyle='#0d0d24'; ct.fill();
+    ct.strokeStyle='#1a1a38'; ct.lineWidth=0.6; ct.stroke();
+    // CloudClub logo on top wall tiles
+    if(r===0 && c%4===1) {
+      drawCloudDecoration(x, y-wh-8, 22, 0.5);
+    }
+  } else if(isDoor) {
+    const dh=24;
+    ct.beginPath();
+    ct.moveTo(x,y); ct.lineTo(x+TW/2,y+TH/2);
+    ct.lineTo(x,y+TH); ct.lineTo(x-TW/2,y+TH/2); ct.closePath();
+    ct.fillStyle='#0a1a0e'; ct.fill();
+    ct.beginPath();
+    ct.moveTo(x-TW/2,y+TH/2); ct.lineTo(x-TW/2,y+TH/2-dh);
+    ct.lineTo(x,y-dh); ct.lineTo(x+TW/2,y+TH/2-dh); ct.lineTo(x+TW/2,y+TH/2); ct.closePath();
+    ct.strokeStyle='#33ff77'; ct.lineWidth=1.2; ct.stroke();
+    ct.fillStyle='#33ff7722'; ct.fill();
+    const dobj=doors.find(d=>d.c===c&&d.r===r);
+    ct.fillStyle='#33ff77'; ct.font='5px monospace'; ct.textAlign='center';
+    ct.fillText(dobj.label, x, y+TH/2-dh/2+2);
+  } else {
+    ct.beginPath();
+    ct.moveTo(x,y); ct.lineTo(x+TW/2,y+TH/2);
+    ct.lineTo(x,y+TH); ct.lineTo(x-TW/2,y+TH/2); ct.closePath();
+    const bv = Math.round(lb*18);
+    const base = (c+r)%2===0 ? brt('#12122a',bv) : brt('#0f0f24',bv);
+    ct.fillStyle=base; ct.fill();
+    ct.strokeStyle='#0a0a1a'; ct.lineWidth=0.3; ct.stroke();
+  }
+}
+
+// ── CONVEYOR ──
+function drawConveyor(row) {
+  for(let c=1;c<GC-1;c++) {
+    const x=ix(c,row), y=iy(c,row);
+    ct.beginPath();
+    ct.moveTo(x,y); ct.lineTo(x+TW/2,y+TH/2);
+    ct.lineTo(x,y+TH); ct.lineTo(x-TW/2,y+TH/2); ct.closePath();
+    ct.fillStyle='#161406'; ct.fill();
+    ct.strokeStyle='#2a2208'; ct.lineWidth=0.5; ct.stroke();
+    const off=(tick*1.2+c*TW*0.5)%TW;
+    ct.save(); ct.clip();
+    ct.strokeStyle='#2e2a08'; ct.lineWidth=1.2; ct.setLineDash([5,10]); ct.lineDashOffset=-off;
+    ct.beginPath(); ct.moveTo(x-TW/2,y+TH/2); ct.lineTo(x+TW/2,y+TH/2); ct.stroke();
+    ct.setLineDash([]); ct.restore();
+    // wafer
+    const wp=((tick*0.55+c*2.8))%((GC-2)*2.8);
+    const wc=Math.floor(wp/2.8);
+    if(wc===c) {
+      const wt=(wp%2.8)/2.8;
+      const nx2=ix(c+1,row), ny2=iy(c+1,row);
+      const wx=x+(nx2-x)*wt, wy=y+TH/2+(ny2+TH/2-(y+TH/2))*wt-5;
+      ct.beginPath(); ct.ellipse(wx,wy,9,5,0,0,Math.PI*2);
+      ct.fillStyle='#b8c0cc'; ct.fill();
+      ct.strokeStyle='#7a8899'; ct.lineWidth=0.5; ct.stroke();
+      ct.strokeStyle='#556677'; ct.lineWidth=0.3;
+      ct.beginPath(); ct.moveTo(wx-5,wy); ct.lineTo(wx+5,wy); ct.stroke();
+      ct.beginPath(); ct.moveTo(wx,wy-3); ct.lineTo(wx,wy+3); ct.stroke();
+    }
+  }
+}
+
+// ── PIPES ──
+function drawPipes() {
+  const configs=[
+    {r:1,col:'#1a3055',flow:'#4a9eff'},
+    {r:GR-2,col:'#2a1a44',flow:'#9966ff'},
+    {c:1,col:'#1a3a20',flow:'#33ff77'},
+  ];
+  configs.forEach(cfg => {
+    if(cfg.r !== undefined) {
+      for(let c=0;c<GC-1;c++) {
+        const x1=ix(c,cfg.r), y1=iy(c,cfg.r);
+        const x2=ix(c+1,cfg.r), y2=iy(c+1,cfg.r);
+        ct.strokeStyle=cfg.col; ct.lineWidth=5;
+        ct.beginPath(); ct.moveTo(x1+TW/2,y1+TH/2); ct.lineTo(x2,y2+TH/2); ct.stroke();
+        ct.strokeStyle=brt(cfg.col,25); ct.lineWidth=1.5;
+        ct.beginPath(); ct.moveTo(x1+TW/2,y1+TH/2-2); ct.lineTo(x2,y2+TH/2-2); ct.stroke();
+        // joint
+        ct.beginPath(); ct.arc(x1+TW/2,y1+TH/2,3,0,Math.PI*2);
+        ct.fillStyle=brt(cfg.col,15); ct.fill();
+        // flow
+        const fp=((tick*1.3+c*10))%((GC-1)*10);
+        const fc=Math.floor(fp/10);
+        if(fc===c) {
+          const t2=(fp%10)/10;
+          const fdx=x1+TW/2+(x2-(x1+TW/2))*t2;
+          const fdy=y1+TH/2+(y2+TH/2-(y1+TH/2))*t2;
+          ct.beginPath(); ct.arc(fdx,fdy,2.5,0,Math.PI*2);
+          ct.fillStyle=cfg.flow; ct.fill();
+        }
+      }
+    }
+  });
+}
+
+// ── LAMP ──
+function drawLamp(lc, lr) {
+  const x=ix(lc,lr), y=iy(lc,lr);
+  const flicker=0.88+Math.sin(tick*0.07+lc*1.7+lr*2.3)*0.07;
+  ct.fillStyle='#223344';
+  ct.fillRect(x-16,y-30,32,5);
+  ct.strokeStyle='#334455'; ct.lineWidth=0.5; ct.strokeRect(x-16,y-30,32,5);
+  for(let i=-1;i<=1;i+=2) {
+    ct.fillStyle=`rgba(220,240,255,${flicker*0.85})`;
+    ct.fillRect(x+i*5-2,y-30,4,5);
+  }
+  // cloud-shaped light diffusion (CloudClub theme)
+  ct.save(); ct.globalAlpha=0.05*flicker;
+  ct.fillStyle='#88aaff';
+  ct.beginPath(); ct.ellipse(x,y+TH/2,TW*1.2,TH*1.0,0,0,Math.PI*2); ct.fill();
+  ct.beginPath(); ct.ellipse(x-TW*0.3,y+TH/2+2,TW*0.5,TH*0.6,0,0,Math.PI*2); ct.fill();
+  ct.beginPath(); ct.ellipse(x+TW*0.3,y+TH/2+2,TW*0.5,TH*0.6,0,0,Math.PI*2); ct.fill();
+  ct.restore();
+}
+
+// ── CLOUD (ambient floating, in game-world space) ──
+function drawAmbientClouds() {
+  clouds.forEach(cl => {
+    const sx = cl.x + camX;
+    const sy = cl.y + camY * 0.15;
+    drawCloudDecoration(sx, sy, cl.w, cl.alpha);
+    cl.x += cl.speed;
+    if(cl.x - camX > cv.width + 100) cl.x -= cv.width + 200;
+  });
+}
+
+// ── MACHINE ──
+function drawMachine(ch) {
+  const x=ix(ch.c,ch.r), y=iy(ch.c,ch.r);
+  const BH=48;
+  const isA=alarmSet.has(ch.id), isSel=selId===ch.id;
+  const pulse=Math.sin(tick*0.2)>0;
+  const acc=isA?(pulse?'#ff3333':'#440000'):ch.acc;
+  const near=nearChamber&&nearChamber.id===ch.id;
+
+  // shadow
+  ct.beginPath();
+  ct.moveTo(x,y+4); ct.lineTo(x+TW/2,y+TH/2+4);
+  ct.lineTo(x,y+TH+4); ct.lineTo(x-TW/2,y+TH/2+4); ct.closePath();
+  ct.fillStyle='rgba(0,0,0,0.5)'; ct.fill();
+
+  // LEFT FACE
+  ct.beginPath();
+  ct.moveTo(x-TW/2,y+TH/2); ct.lineTo(x-TW/2,y+TH/2-BH);
+  ct.lineTo(x,y-BH); ct.lineTo(x,y); ct.closePath();
+  ct.fillStyle=brt(ch.col,-8); ct.fill();
+  // panel lines
+  ct.strokeStyle=brt(ch.col,22); ct.lineWidth=0.4;
+  for(let i=1;i<3;i++) {
+    ct.beginPath();
+    ct.moveTo(x-TW/2,y+TH/2-BH*i/3); ct.lineTo(x,y-BH*i/3); ct.stroke();
+  }
+  // mini screen
+  const sx=x-TW/2+5, sy=y+TH/2-BH+8;
+  ct.fillStyle='#000c20'; ct.fillRect(sx,sy,22,14);
+  ct.strokeStyle=acc; ct.lineWidth=0.6; ct.strokeRect(sx,sy,22,14);
+  for(let i=0;i<4;i++) {
+    const bh=3+Math.round(Math.sin(tick*0.15+i*1.3+ch.id)*3+3);
+    ct.fillStyle=isA&&pulse?'#ff222255':acc+'66';
+    ct.fillRect(sx+2+i*5,sy+14-bh,4,bh);
+  }
+  ct.fillStyle='rgba(255,255,255,0.02)';
+  for(let j=0;j<14;j+=2) ct.fillRect(sx,sy+j,22,1);
+
+  // RIGHT FACE
+  ct.beginPath();
+  ct.moveTo(x+TW/2,y+TH/2); ct.lineTo(x+TW/2,y+TH/2-BH);
+  ct.lineTo(x,y-BH); ct.lineTo(x,y); ct.closePath();
+  ct.fillStyle=brt(ch.col,-24); ct.fill();
+  ct.strokeStyle='#000'; ct.lineWidth=0.5; ct.stroke();
+  // vents
+  ct.strokeStyle=brt(ch.col,16); ct.lineWidth=0.4;
+  for(let i=0;i<4;i++) {
+    ct.beginPath();
+    ct.moveTo(x+TW/4,y+TH/2-BH+10+i*7);
+    ct.lineTo(x+TW/2-4,y+TH/2-BH+10+i*7+TH/4-2);
+    ct.stroke();
+  }
+
+  // TOP FACE
+  ct.beginPath();
+  ct.moveTo(x,y-BH); ct.lineTo(x+TW/2,y+TH/2-BH);
+  ct.lineTo(x,y+TH-BH); ct.lineTo(x-TW/2,y+TH/2-BH); ct.closePath();
+  ct.fillStyle=ch.top; ct.fill();
+  ct.strokeStyle='#000'; ct.lineWidth=0.5; ct.stroke();
+  ct.strokeStyle=brt(ch.top,18); ct.lineWidth=0.4;
+  ct.beginPath(); ct.moveTo(x-TW/4,y-BH+TH/4); ct.lineTo(x+TW/4,y-BH+TH/4); ct.stroke();
+  ct.beginPath(); ct.moveTo(x,y-BH+TH/2-2); ct.lineTo(x,y+TH-BH-2); ct.stroke();
+
+  // status LED
+  const lx=x+TW/4, ly=y-BH+TH/4-2;
+  ct.beginPath(); ct.arc(lx,ly,4.5,0,Math.PI*2);
+  ct.fillStyle=acc; ct.fill();
+  if(!isA||pulse) {
+    ct.beginPath(); ct.arc(lx,ly,8,0,Math.PI*2);
+    ct.strokeStyle=acc+'44'; ct.lineWidth=2; ct.stroke();
+  }
+
+  // CloudClub badge on machine
+  const badgeX=x-TW/4+2, badgeY=y-BH+TH/4+4;
+  drawCloudDecoration(badgeX, badgeY, 14, isA?0.05:0.25);
+
+  // exhaust pipe
+  const epx=x-TW/4+2, epy=y-BH-12;
+  ct.fillStyle=brt(ch.col,20);
+  ct.fillRect(epx,epy,5,14);
+  ct.strokeStyle='#000'; ct.lineWidth=0.4; ct.strokeRect(epx,epy,5,14);
+  ct.fillStyle=brt(ch.col,30); ct.fillRect(epx,epy,5,3);
+  if(!isA) {
+    for(let s=0;s<4;s++) {
+      const so=(tick*0.4+s*4)%14;
+      ct.beginPath(); ct.arc(epx+2,epy-so,1.5+s*0.4,0,Math.PI*2);
+      ct.fillStyle=`rgba(180,190,210,${0.18-so*0.012})`; ct.fill();
+    }
+  } else if(pulse) {
+    for(let s=0;s<3;s++) {
+      const sa=(tick*0.6+s*2.5)%8;
+      ct.beginPath(); ct.arc(epx+2+Math.sin(sa)*3,epy-sa,1.5,0,Math.PI*2);
+      ct.fillStyle=`rgba(255,80,0,${0.8-sa*0.08})`; ct.fill();
+    }
+  }
+
+  // all edge lines
+  ct.beginPath();
+  ct.moveTo(x-TW/2,y+TH/2); ct.lineTo(x-TW/2,y+TH/2-BH);
+  ct.lineTo(x,y-BH); ct.lineTo(x+TW/2,y+TH/2-BH); ct.lineTo(x+TW/2,y+TH/2);
+  ct.moveTo(x,y-BH); ct.lineTo(x,y);
+  ct.strokeStyle='#00000077'; ct.lineWidth=0.5; ct.stroke();
+  ct.beginPath();
+  ct.moveTo(x-TW/2,y+TH/2-BH); ct.lineTo(x,y-BH); ct.lineTo(x+TW/2,y+TH/2-BH);
+  ct.strokeStyle=brt(ch.top,30)+'88'; ct.lineWidth=0.8; ct.stroke();
+
+  // name
+  ct.textAlign='center';
+  ct.font='bold 6px monospace';
+  ct.fillStyle=isA&&pulse?'#ff5555':isSel?'#ffe066':brt(ch.acc,20);
+  ct.fillText(ch.name,x,y-BH-14);
+  ct.font='5px monospace';
+  ct.fillStyle=brt(ch.acc,-20)+'aa';
+  ct.fillText(ch.type,x,y-BH-5);
+
+  // near prompt
+  if(near) {
+    ct.font='bold 7px monospace'; ct.fillStyle='#ffe066';
+    ct.fillText('▼ SPACE',x,y-BH-28);
+    ct.strokeStyle='#ffe06644'; ct.lineWidth=1.5;
+    ct.strokeRect(x-22,y-BH-36,44,12);
+  }
+  if(isA&&pulse) {
+    ct.font='bold 6.5px monospace'; ct.fillStyle='#ff3333';
+    ct.fillText('!! ERROR',x,y-BH-(near?50:28));
+  }
+  // selection ring
+  if(isSel) {
+    ct.beginPath();
+    ct.moveTo(x,y); ct.lineTo(x+TW/2,y+TH/2);
+    ct.lineTo(x,y+TH); ct.lineTo(x-TW/2,y+TH/2); ct.closePath();
+    ct.strokeStyle='#ffe06688'; ct.lineWidth=2; ct.stroke();
+  }
+}
+
+// ── MAPLE CHARACTER (canvas-drawn) ──
+function drawPlayer() {
+  const x=ix(px,py), y=iy(px,py);
+  const bob=Math.sin(tick*0.18)*1.5;
+  const mv=keys['ArrowUp']||keys['ArrowDown']||keys['ArrowLeft']||keys['ArrowRight']||keys['w']||keys['s']||keys['a']||keys['d'];
+  const step=mv?Math.floor(tick/5)%2:0;
+  const B=bob;
+
+  ct.save();
+  // shadow
+  ct.beginPath(); ct.ellipse(x,y+TH/2,12,5,0,0,Math.PI*2);
+  ct.fillStyle='rgba(0,0,0,0.45)'; ct.fill();
+
+  // ── BOOTS ──
+  ct.fillStyle='#1a1a2e';
+  ct.fillRect(x-8,y+29+B,8,8); ct.fillRect(x+1,y+29+B,8,8);
+  ct.fillStyle='#111120';
+  ct.fillRect(x-9,y+35+B,10,5); ct.fillRect(x,y+35+B,10,5);
+  // gold trim
+  ct.fillStyle='#c8901a';
+  ct.fillRect(x-8,y+29+B,8,2); ct.fillRect(x+1,y+29+B,8,2);
+
+  // ── LEGS ──
+  ct.fillStyle='#1a44aa';
+  if(step===0){ct.fillRect(x-7,y+18+B,6,13);ct.fillRect(x+1,y+20+B,6,11);}
+  else{ct.fillRect(x-7,y+20+B,6,11);ct.fillRect(x+1,y+18+B,6,13);}
+  // knee plate
+  ct.fillStyle='#c8901a';
+  ct.fillRect(x-8,y+(step===0?22:24)+B,7,5);
+  ct.fillRect(x+1,y+(step===0?24:22)+B,7,5);
+  ct.fillStyle='#e8b040';
+  ct.fillRect(x-7,y+(step===0?23:25)+B,3,2);
+  ct.fillRect(x+2,y+(step===0?25:23)+B,3,2);
+
+  // ── BODY ──
+  ct.fillStyle='#aa2200'; ct.fillRect(x-10,y+7+B,20,13);
+  ct.fillStyle='#cc4422'; ct.fillRect(x-8,y+8+B,8,5);
+  ct.fillStyle='#771100'; ct.fillRect(x-10,y+15+B,20,5);
+  // chest plate
+  ct.fillStyle='#c8901a'; ct.fillRect(x-9,y+7+B,20,13);
+  ct.fillStyle='#e8b040'; ct.fillRect(x-7,y+8+B,8,4);
+  ct.fillStyle='#a07010'; ct.fillRect(x-9,y+15+B,20,5);
+  // armor overlay
+  ct.fillStyle='rgba(26,68,170,0.6)'; ct.fillRect(x-9,y+7+B,9,13);
+  ct.fillStyle='rgba(26,68,170,0.6)'; ct.fillRect(x+2,y+7+B,7,13);
+  // FAB text on chest
+  ct.fillStyle='#33ff77'; ct.font='bold 5px monospace'; ct.textAlign='center';
+  ct.fillText('FAB',x,y+14+B);
+  // belt
+  ct.fillStyle='#3a2200'; ct.fillRect(x-10,y+18+B,20,3);
+  ct.fillStyle='#c8901a'; ct.fillRect(x-3,y+18+B,6,3);
+  ct.fillStyle='#e8c050'; ct.fillRect(x-1,y+19+B,2,1);
+
+  // ── SHOULDER PADS ──
+  ct.fillStyle='#c8901a';
+  ct.fillRect(x-14,y+7+B,6,7); ct.fillRect(x+8,y+7+B,6,7);
+  ct.fillStyle='#e8b040';
+  ct.fillRect(x-13,y+8+B,3,3); ct.fillRect(x+9,y+8+B,3,3);
+
+  // ── ARMS ──
+  ct.fillStyle='#aa2200';
+  ct.fillRect(x-15,y+10+B,5,11); ct.fillRect(x+10,y+10+B,5,11);
+  ct.fillStyle='#ddeeff';
+  ct.fillRect(x-15,y+19+B,5,5); ct.fillRect(x+10,y+19+B,5,5);
+  // gauntlets
+  ct.fillStyle='#c8901a';
+  ct.fillRect(x-15,y+22+B,6,5); ct.fillRect(x+9,y+22+B,6,5);
+
+  // ── NECK ──
+  ct.fillStyle='#ffd4a8'; ct.fillRect(x-3,y+4+B,6,5);
+
+  // ── HEAD (big maple ratio) ──
+  // head base — oversized
+  ct.fillStyle='#ffd4a8'; ct.fillRect(x-11,y-14+B,22,20);
+  // cheek shading
+  ct.fillStyle='rgba(255,160,100,0.25)'; ct.fillRect(x-11,y+2+B,22,4);
+  // ears
+  ct.fillStyle='#ffd4a8'; ct.fillRect(x-13,y-8+B,3,6); ct.fillRect(x+10,y-8+B,3,6);
+  ct.fillStyle='#eebf94'; ct.fillRect(x-12,y-7+B,2,4); ct.fillRect(x+10,y-7+B,2,4);
+
+  // ── EYES (tall maple eyes) ──
+  // eyebrows
+  ct.fillStyle='#906010';
+  ct.fillRect(x-10,y-12+B,8,2); ct.fillRect(x+2,y-12+B,8,2);
+  // white
+  ct.fillStyle='#ffffff'; ct.fillRect(x-10,y-9+B,8,9); ct.fillRect(x+2,y-9+B,8,9);
+  // iris
+  ct.fillStyle='#3a6acc'; ct.fillRect(x-9,y-8+B,6,7); ct.fillRect(x+3,y-8+B,6,7);
+  // pupil
+  ct.fillStyle='#111122'; ct.fillRect(x-8,y-7+B,4,5); ct.fillRect(x+4,y-7+B,4,5);
+  // shine (maple characteristic)
+  ct.fillStyle='#ffffff'; ct.fillRect(x-8,y-7+B,2,2); ct.fillRect(x+4,y-7+B,2,2);
+  ct.fillStyle='rgba(255,255,255,0.6)'; ct.fillRect(x-6,y-4+B,1,1); ct.fillRect(x+6,y-4+B,1,1);
+  // eyelashes (top)
+  ct.fillStyle='#111122';
+  ct.fillRect(x-10,y-10+B,9,1); ct.fillRect(x+1,y-10+B,9,1);
+  // lower lash line
+  ct.fillStyle='rgba(200,160,120,0.5)';
+  ct.fillRect(x-10,y-1+B,8,1); ct.fillRect(x+2,y-1+B,8,1);
+  // blush
+  ct.fillStyle='rgba(255,120,100,0.3)';
+  ct.fillRect(x-11,y-3+B,4,3); ct.fillRect(x+7,y-3+B,4,3);
+  // nose
+  ct.fillStyle='#d4a070'; ct.fillRect(x-1,y+2+B,2,1);
+  // mouth
+  ct.fillStyle='#c05040'; ct.fillRect(x-3,y+4+B,6,2);
+  ct.fillStyle='#ff8870'; ct.fillRect(x-2,y+4+B,2,1);
+
+  // ── HAIR (maple spiky style) ──
+  // back
+  ct.fillStyle='#c89020';
+  ct.fillRect(x-12,y-14+B,24,6);
+  ct.fillRect(x-10,y-20+B,20,8);
+  // side pieces
+  ct.fillRect(x-14,y-12+B,4,12); ct.fillRect(x+10,y-12+B,4,12);
+  // spikes
+  ct.fillStyle='#dda030';
+  ct.fillRect(x-8,y-24+B,4,8); // left spike
+  ct.fillRect(x-2,y-27+B,4,9); // center spike  
+  ct.fillRect(x+4,y-24+B,4,8); // right spike
+  // highlight
+  ct.fillStyle='#f0c040';
+  ct.fillRect(x-6,y-22+B,2,4); ct.fillRect(x-1,y-25+B,2,5); ct.fillRect(x+5,y-22+B,2,4);
+  // shadow
+  ct.fillStyle='#806010';
+  ct.fillRect(x-12,y-14+B,24,2);
+
+  // ── HEADBAND / HELMET ──
+  ct.fillStyle='#2244aa';
+  ct.fillRect(x-12,y-16+B,24,5);
+  ct.fillStyle='#3355cc';
+  ct.fillRect(x-10,y-17+B,20,3);
+  // gem
+  ct.fillStyle='#4a9eff'; ct.fillRect(x-3,y-18+B,6,5);
+  ct.fillStyle='#88ccff'; ct.fillRect(x-2,y-17+B,2,2);
+  // CloudClub cloud on headband
+  ct.fillStyle='rgba(160,200,255,0.7)';
+  ct.fillRect(x+4,y-16+B,3,2); ct.fillRect(x+3,y-17+B,2,1); ct.fillRect(x+5,y-17+B,2,1);
+
+  // ── NAME BUBBLE ──
+  const bw=58, bh=12, bx2=x-bw/2, by2=y-40+B;
+  ct.fillStyle='rgba(0,2,10,0.87)'; ct.fillRect(bx2,by2,bw,bh);
+  ct.strokeStyle='#ffe066'; ct.lineWidth=0.8; ct.strokeRect(bx2,by2,bw,bh);
+  // tiny cloud in bubble
+  ct.fillStyle='#4a8aff';
+  ct.fillRect(bx2+3,by2+4,4,3);ct.fillRect(bx2+2,by2+3,2,1);ct.fillRect(bx2+4,by2+3,2,1);ct.fillRect(bx2+5,by2+2,2,1);
+  ct.fillStyle='#ffe066'; ct.font='5px monospace'; ct.textAlign='center';
+  ct.fillText('ENGINEER',x+2,by2+9);
+
+  ct.restore();
+}
+
+// ── MINIMAP OVERLAY ──
+function drawMinimap() {
+  if(!showMinimap) return;
+  const mw=140, mh=100, mx=cv.width-mw-10, my=10;
+  ct.fillStyle='rgba(0,4,16,0.92)'; ct.fillRect(mx,my,mw,mh);
+  ct.strokeStyle='#4a9eff'; ct.lineWidth=1; ct.strokeRect(mx,my,mw,mh);
+  ct.fillStyle='#4a9eff'; ct.font='5px monospace'; ct.textAlign='left';
+  ct.fillText('MINIMAP [Tab]',mx+4,my+9);
+  const sx=mw/GC, sy=(mh-14)/GR;
+  for(let r=0;r<GR;r++) for(let c=0;c<GC;c++) {
+    const isWall=(c===0||r===0||c===GC-1||r===GR-1);
+    ct.fillStyle=isWall?'#1a1a40':'#10101c';
+    ct.fillRect(mx+c*sx,my+14+r*sy,sx-0.5,sy-0.5);
+  }
+  chambers.forEach(ch=>{
+    ct.fillStyle=alarmSet.has(ch.id)?'#ff4444':ch.acc;
+    ct.fillRect(mx+ch.c*sx,my+14+ch.r*sy,sx*1.5,sy*1.5);
+  });
+  // player dot
+  ct.beginPath(); ct.arc(mx+px*sx,my+14+py*sy,3,0,Math.PI*2);
+  ct.fillStyle='#ffe066'; ct.fill();
+}
+
+// ── CAMERA ──
+function updateCamera() {
+  const tx = cv.width/2 - ix(px,py);
+  const ty = cv.height/2 - iy(px,py) - 20;
+  camX += (tx-camX)*0.1;
+  camY += (ty-camY)*0.1;
+}
+
+// ── COLLISION ──
+function checkNear() {
+  nearChamber = null;
+  chambers.forEach(ch=>{
+    if(Math.hypot(px-ch.c,py-ch.r)<1.6) nearChamber=ch;
+  });
+  const tip=document.getElementById('tip');
+  if(nearChamber) {
+    selId=nearChamber.id;
+    document.querySelectorAll('.ctab').forEach(b=>b.classList.toggle('sel',parseInt(b.dataset.id)===nearChamber.id));
+    document.getElementById('sname').textContent=nearChamber.name+' ['+nearChamber.type+'] — Space로 공정 실행';
+    tip.textContent=nearChamber.name+': '+nearChamber.desc;
+    tip.style.display='block';
+  } else {
+    tip.style.display='none';
+  }
+}
+
+// ── INPUT ──
+function handleInput() {
+  let dx=0, dy=0;
+  // Correct isometric directional mapping:
+  // Screen UP → iso NW → c--, r--  (both decrease)
+  // Screen DOWN → iso SE → c++, r++
+  // Screen LEFT → iso SW → c--, r++
+  // Screen RIGHT → iso NE → c++, r--
+  if(keys['ArrowUp']   ||keys['w']){dx-=SPEED;dy-=SPEED;}
+  if(keys['ArrowDown'] ||keys['s']){dx+=SPEED;dy+=SPEED;}
+  if(keys['ArrowLeft'] ||keys['a']){dx-=SPEED;dy+=SPEED;}
+  if(keys['ArrowRight']||keys['d']){dx+=SPEED;dy-=SPEED;}
+
+  const nx=Math.max(1,Math.min(GC-2,px+dx));
+  const ny=Math.max(1,Math.min(GR-2,py+dy));
+  const blocked=chambers.some(ch=>Math.hypot(nx-ch.c,ny-ch.r)<0.85);
+  if(!blocked) { px=nx; py=ny; }
+}
+
+// ── MAIN RENDER ──
+function render() {
+  ct.clearRect(0,0,cv.width,cv.height);
+  ct.fillStyle='#05050f'; ct.fillRect(0,0,cv.width,cv.height);
+
+  handleInput();
+  updateCamera();
+  checkNear();
+
+  ct.save();
+  ct.translate(camX, camY);
+
+  // ambient ceiling clouds (parallax, behind everything)
+  drawAmbientClouds();
+
+  // floor (back to front)
+  for(let r=0;r<GR;r++) for(let c=0;c<GC;c++) drawFloorTile(c,r);
+
+  // conveyor
+  drawConveyor(9);
+
+  // pipes
+  drawPipes();
+
+  // lamps
+  lamps.forEach(l=>drawLamp(l.c,l.r));
+
+  // depth sort
+  const objs=[
+    ...chambers.map(ch=>({d:ch.c+ch.r,fn:()=>drawMachine(ch)})),
+    {d:px+py, fn:()=>drawPlayer()},
+  ];
+  objs.sort((a,b)=>a.d-b.d);
+  objs.forEach(o=>o.fn());
+
+  ct.restore();
+
+  // minimap (screen space, no camera)
+  drawMinimap();
+
+  // HUD tick
+  document.getElementById('h-tmp').textContent=(318+Math.round(Math.sin(tick*0.04)*6))+'°C';
+  document.getElementById('h-prs').textContent=(2.10+Math.sin(tick*0.05)*0.09).toFixed(2)+'Pa';
+
+  tick++;
+  requestAnimationFrame(render);
+}
+
+// ── EVENTS ──
+document.addEventListener('keydown',e=>{
+  keys[e.key]=true;
+  if(['ArrowUp','ArrowDown','ArrowLeft','ArrowRight',' '].includes(e.key)) e.preventDefault();
+  if(e.key==='Tab'){e.preventDefault();showMinimap=!showMinimap;}
+  if(e.key===' '&&nearChamber){
+    selId=nearChamber.id;
+    document.getElementById('sname').textContent=nearChamber.name+' ['+nearChamber.type+'] — 공정을 선택하세요';
+    log('INTERACT | '+nearChamber.name+' 접근','li');
+  }
+});
+document.addEventListener('keyup',e=>keys[e.key]=false);
+
+document.querySelectorAll('.ctab').forEach(b=>{
+  b.addEventListener('click',()=>{
+    const id=parseInt(b.dataset.id);
+    const ch=chambers[id];
+    px=ch.c; py=ch.r+1.4;
+    selId=id;
+    document.querySelectorAll('.ctab').forEach(x=>x.classList.toggle('sel',parseInt(x.dataset.id)===id));
+    document.getElementById('sname').textContent=ch.name+' ['+ch.type+']';
+  });
+});
+
+function log(msg,type){
+  const box=document.getElementById('logbox');
+  const d=document.createElement('div'); d.className=type;
+  d.textContent='['+new Date().toTimeString().slice(0,8)+'] '+msg;
+  box.appendChild(d); box.scrollTop=box.scrollHeight;
+}
+
+const PRODUCER_URL = 'http://localhost:8000/events';
+
+const SENSOR_NORMAL = {
+  temp:         [315, 345],
+  pressure:     [2.0, 2.4],
+  rf_power:     [900, 1400],
+  gas_flow:     [80,  180],
+  bias_voltage: [150, 380],
+};
+
+// 각 이상 타입별 임계치 초과값 생성 범위
+const ANOMALY_SENSOR = {
+  TEMP_SPIKE:   { sensorType:'temp',         value:()=> +(381 + Math.random()*20).toFixed(1) },
+  PRESS_DROP:   { sensorType:'pressure',      value:()=> +(3.1 + Math.random()*0.5).toFixed(2) },
+  RF_UNSTABLE:  { sensorType:'rf_power',      value:()=> +(1850 + Math.random()*100).toFixed(0) },
+  GAS_FLOW_ERR: { sensorType:'gas_flow',      value:()=> +(255 + Math.random()*20).toFixed(1) },
+  CHAMBER_LEAK: { sensorType:'bias_voltage',  value:()=> +(455 + Math.random()*20).toFixed(1) },
+};
+
+async function sendEvent(payload) {
+  try {
+    const res = await fetch(PRODUCER_URL, {
+      method: 'POST',
+      headers: {'Content-Type':'application/json'},
+      body: JSON.stringify(payload),
+    });
+    if(!res.ok) log('Producer 오류: '+res.status,'le');
+  } catch(e) {
+    log('Producer 연결 실패 — uvicorn 실행 확인 (port 8000)','le');
+  }
+}
+
+function doNormal(){
+  if(selId===null){log('Chamber를 먼저 선택하세요','li');return;}
+  const ch=chambers[selId];
+  alarmSet.delete(selId);
+  document.querySelectorAll('.ctab').forEach(b=>{if(parseInt(b.dataset.id)===selId)b.classList.remove('err');});
+  document.getElementById('h-alm').textContent=alarmSet.size;
+  const waferId='W-'+String(Math.floor(Math.random()*9000+1000));
+  const lotId='L-'+String(Math.floor(Math.random()*9000+1000));
+  document.getElementById('h-yld').textContent=(97.5+Math.random()*1.2).toFixed(1)+'%';
+  document.getElementById('h-wfr').textContent=waferId;
+
+  const sensors=Object.keys(SENSOR_NORMAL);
+  const sensorType=sensors[Math.floor(Math.random()*sensors.length)];
+  const [lo,hi]=SENSOR_NORMAL[sensorType];
+  const value=+(lo+Math.random()*(hi-lo)).toFixed(2);
+
+  sendEvent({
+    equipmentId:'EQ-'+ch.type, chamberId:ch.name,
+    sensorType, value, timestamp:Date.now(),
+    waferId, lotId, recipeId:'RCP-'+ch.type+'-001', isAnomaly:false,
+  });
+  log(ch.name+' 정상 | '+sensorType+':'+value+' → Kafka','ln');
+}
+
+function doAnomaly(){
+  if(selId===null){log('Chamber를 먼저 선택하세요','li');return;}
+  const ch=chambers[selId];
+  alarmSet.add(selId);
+  document.querySelectorAll('.ctab').forEach(b=>{if(parseInt(b.dataset.id)===selId)b.classList.add('err');});
+  document.getElementById('h-alm').textContent=alarmSet.size;
+  const waferId='W-'+String(Math.floor(Math.random()*9000+1000));
+  const lotId='L-'+String(Math.floor(Math.random()*9000+1000));
+  document.getElementById('h-yld').textContent=(88+Math.random()*5).toFixed(1)+'%';
+
+  const anomalyKeys=Object.keys(ANOMALY_SENSOR);
+  const t=anomalyKeys[Math.floor(Math.random()*anomalyKeys.length)];
+  const {sensorType, value:valGen}=ANOMALY_SENSOR[t];
+  const value=valGen();
+
+  sendEvent({
+    equipmentId:'EQ-'+ch.type, chamberId:ch.name,
+    sensorType, value, timestamp:Date.now(),
+    waferId, lotId, recipeId:'RCP-'+ch.type+'-001', isAnomaly:false,
+  });
+  log('⚠ ANOMALY | '+ch.name+' | '+t+' | '+sensorType+':'+value+' > threshold → Kafka','le');
+}
+
+function clearLog(){document.getElementById('logbox').innerHTML='<div class="li">[ 클리어 ]</div>';}
+
+render();
+</script>
+</body>
+</html>
