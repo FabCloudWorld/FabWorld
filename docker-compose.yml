@@ -93,10 +93,6 @@ services:
     ports:
       - "8123:8123"   # HTTP (친구 연동: localhost:8123)
       - "9000:9000"   # Native TCP
-    environment:
-      CLICKHOUSE_USER: grafana
-      CLICKHOUSE_PASSWORD: fab123
-      CLICKHOUSE_DB: fabworld
     volumes:
       - clickhouse-data:/var/lib/clickhouse
       - ./clickhouse:/docker-entrypoint-initdb.d:ro   # 친구의 init.sql 자동 실행
