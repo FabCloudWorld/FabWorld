@@ -45,6 +45,19 @@
         "query": "temp,pressure,rf_power,gas_flow,bias_voltage",
         "type": "custom",
         "label": "Sensor"
+      },
+      {
+        "current": { "value": "$__all", "text": "All" },
+        "hide": 0,
+        "includeAll": true,
+        "multi": true,
+        "name": "anomalyChamber",
+        "label": "Anomaly Chamber",
+        "type": "query",
+        "datasource": { "type": "grafana-clickhouse-datasource", "uid": "clickhouse-fab" },
+        "query": "SELECT DISTINCT chamberId FROM fabworld.anomaly_events WHERE detectedAt >= now() - INTERVAL 1 HOUR ORDER BY chamberId",
+        "refresh": 2,
+        "sort": 1
       }
     ]
   },
@@ -190,6 +203,43 @@
         ]
       },
       "options": { "sortBy": [{ "displayName": "time", "desc": true }] }
+    },
+    {
+      "id": 6,
+      "title": "Sensor (% of threshold) — $anomalyChamber",
+      "type": "timeseries",
+      "repeat": "anomalyChamber",
+      "repeatDirection": "h",
+      "maxPerRow": 2,
+      "gridPos": { "h": 8, "w": 12, "x": 0, "y": 15 },
+      "datasource": { "type": "grafana-clickhouse-datasource", "uid": "clickhouse-fab" },
+      "targets": [
+        {
+          "datasource": { "type": "grafana-clickhouse-datasource", "uid": "clickhouse-fab" },
+          "rawSql": "SELECT toStartOfMinute(timestamp) AS time, sensorType, avg(value) / multiIf(sensorType = 'temp', 380, sensorType = 'pressure', 3, sensorType = 'rf_power', 1800, sensorType = 'gas_flow', 250, sensorType = 'bias_voltage', 450, 1) * 100 AS value FROM fabworld.sensor_raw WHERE $__timeFilter(timestamp) AND chamberId = '$anomalyChamber' GROUP BY time, sensorType ORDER BY time",
+          "format": "table"
+        }
+      ],
+      "fieldConfig": {
+        "defaults": {
+          "unit": "percent",
+          "color": { "mode": "palette-classic" },
+          "custom": {
+            "lineWidth": 2,
+            "fillOpacity": 5,
+            "thresholdsStyle": { "mode": "line" }
+          },
+          "thresholds": {
+            "mode": "absolute",
+            "steps": [
+              { "color": "green", "value": null },
+              { "color": "red", "value": 100 }
+            ]
+          }
+        },
+        "overrides": []
+      },
+      "options": { "tooltip": { "mode": "multi", "sort": "desc" }, "legend": { "displayMode": "list", "placement": "bottom" } }
     }
   ]
 }

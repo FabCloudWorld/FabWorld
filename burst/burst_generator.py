@@ -14,6 +14,11 @@ KAFKA_BOOTSTRAP = os.getenv("KAFKA_BOOTSTRAP", "localhost:9092")
 TOPIC = "sensor-raw"
 
 SENSOR_TYPES = ["temp", "pressure", "rf_power", "gas_flow", "bias_voltage"]
+# 대시보드 $chamberId / seed_data.py 와 동일한 정규 챔버 목록
+CHAMBERS = [
+    "CVD-A1", "CVD-A2", "PVD-B1", "PVD-B2", "ETCH-C1",
+    "ETCH-C2", "INSP-D1", "INSP-D2", "CMP-E1", "CMP-E2",
+]
 NORMAL_RANGES = {
     "temp":         (280.0, 350.0),
     "pressure":     (1.8,   2.5),
@@ -23,12 +28,12 @@ NORMAL_RANGES = {
 }
 
 
-def make_event(chamber_idx: int) -> dict:
+def make_event(chamber: str) -> dict:
     sensor = random.choice(SENSOR_TYPES)
     lo, hi = NORMAL_RANGES[sensor]
     return {
-        "equipmentId": f"EQ-{chamber_idx // 10:03d}",
-        "chamberId":   f"CH-{chamber_idx:03d}",
+        "equipmentId": f"EQ-{chamber}",
+        "chamberId":   chamber,
         "sensorType":  sensor,
         "value":       round(random.uniform(lo, hi), 2),
         "timestamp":   time.time_ns() // 1_000_000,
@@ -56,8 +61,8 @@ async def run(rate: int) -> None:
 
     try:
         while True:
-            chamber_idx = random.randint(0, 999)
-            ev = make_event(chamber_idx)
+            chamber = random.choice(CHAMBERS)
+            ev = make_event(chamber)
             await producer.send(
                 TOPIC,
                 key=ev["chamberId"].encode(),
