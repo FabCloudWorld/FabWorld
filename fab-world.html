@@ -41,9 +41,13 @@ canvas#cv{display:block;width:100%;height:100%}
 @keyframes blk{0%,100%{opacity:1}50%{opacity:.15}}
 #logbox{background:#000810;border:1px solid #0f2035;border-radius:3px;padding:5px 8px;height:46px;overflow-y:auto;font-size:5.5px;line-height:1.9}
 .ln{color:#4aff91}.le{color:#ff6666}.li{color:#4a9eff}
+.bgm-btn{font-family:'Press Start 2P',monospace;font-size:5px;padding:3px 6px;border:1px solid #2a4a6a;background:transparent;color:#4a6a8a;cursor:pointer;border-radius:2px;transition:all .1s}
+.bgm-btn:hover{border-color:#4a9eff;color:#4a9eff}
+.bgm-btn.on{border-color:#4aff91;color:#4aff91}
 </style>
 </head>
 <body>
+<audio id="bgm" src="RaindropFlower.mp3" loop preload="auto"></audio>
 <div id="root">
   <div id="hud">
     <div class="htitle">☁ FAB WORLD — CloudClub CLEAN ROOM 7F</div>
@@ -54,6 +58,7 @@ canvas#cv{display:block;width:100%;height:100%}
       <div class="hs"><span class="k">PRESS</span><span class="v" id="h-prs">2.14Pa</span></div>
       <div class="hs al"><span class="k">ALARM</span><span class="v" id="h-alm">0</span></div>
       <div class="hs"><span class="k">YIELD</span><span class="v" id="h-yld">98.4%</span></div>
+      <button class="bgm-btn" id="bgm-btn" title="BGM ON/OFF">♪ BGM</button>
     </div>
   </div>
 
@@ -131,8 +136,64 @@ const chambers = [
 ];
 
 const doors = [
-  {c:0,r:8,label:'EXIT A'},{c:17,r:8,label:'EXIT B'},{c:9,r:0,label:'LOAD PORT'}
+  {c:0,r:8,label:'EXIT A'},{c:GC-1,r:8,label:'EXIT B'},{c:9,r:0,label:'LOAD PORT'}
 ];
+
+// ── ROOM SYSTEM ──────────────────────────────────────────────────────────────
+let currentRoom = 'fab';
+
+const ROOM_CFG = {
+  fab:      {bg:'#05050f', floorA:'#12122a', floorB:'#0f0f24', wallL:'#0a0a1e', wallR:'#080818', wallT:'#0d0d24', wallLine:'#1a1a38', floorLine:'#0a0a1a'},
+  gownroom: {bg:'#8a9aaa', floorA:'#b8bec8', floorB:'#b0b6c0', wallL:'#6a7888', wallR:'#606e7a', wallT:'#7a8896', wallLine:'#8a98aa', floorLine:'#9aa4b2'},
+  office:   {bg:'#c8b890', floorA:'#d4a850', floorB:'#c89840', wallL:'#a08060', wallR:'#907050', wallT:'#b09070', wallLine:'#c0a880', floorLine:'#c0982a'},
+};
+
+const GOWN_FURNITURE = [
+  {id:10,c:2,r:2, type:'LOCKER',    label:'LOCKER A',   col:'#334488',top:'#4455aa',acc:'#88aaff'},
+  {id:11,c:2,r:5, type:'LOCKER',    label:'LOCKER B',   col:'#334488',top:'#4455aa',acc:'#88aaff'},
+  {id:12,c:2,r:8, type:'LOCKER',    label:'LOCKER C',   col:'#334488',top:'#4455aa',acc:'#88aaff'},
+  {id:13,c:9,r:4, type:'AIRSHOWER', label:'AIR SHOWER', col:'#336688',top:'#4477aa',acc:'#44aaff'},
+  {id:14,c:14,r:3,type:'SUIT',      label:'SUIT RACK',  col:'#446644',top:'#558855',acc:'#55ee77'},
+  {id:15,c:14,r:7,type:'SUIT',      label:'SUIT RACK',  col:'#446644',top:'#558855',acc:'#55ee77'},
+];
+
+const OFFICE_FURNITURE = [
+  {id:20,c:3, r:2, type:'DESK',       label:'DESK-1',   col:'#6a4a18',top:'#7a5a22',acc:'#ffcc44'},
+  {id:21,c:7, r:2, type:'DESK',       label:'DESK-2',   col:'#6a4a18',top:'#7a5a22',acc:'#ffcc44'},
+  {id:22,c:11,r:2, type:'DESK',       label:'DESK-3',   col:'#6a4a18',top:'#7a5a22',acc:'#ffcc44'},
+  {id:23,c:15,r:4, type:'SERVER',     label:'DATA SRV', col:'#223344',top:'#334455',acc:'#44ccff'},
+  {id:24,c:3, r:11,type:'PLANT',      label:'PLANT',    col:'#224422',top:'#336633',acc:'#44ee66'},
+  {id:25,c:9, r:11,type:'PLANT',      label:'PLANT',    col:'#224422',top:'#336633',acc:'#44ee66'},
+  {id:26,c:14,r:11,type:'WHITEBOARD', label:'BOARD',    col:'#ccccdd',top:'#ddddee',acc:'#4444ff'},
+];
+
+const ROOM_EXITS = {
+  fab:      [{c:0,    r:8, label:'EXIT A →', to:'gownroom', sx:9, sy:8},
+             {c:GC-1, r:8, label:'EXIT B →', to:'gownroom', sx:9, sy:8}],
+  gownroom: [{c:0,    r:8, label:'← FAB',    to:'fab',      sx:9, sy:8},
+             {c:GC-1, r:8, label:'OFFICE →', to:'office',   sx:9, sy:8}],
+  office:   [{c:0,    r:8, label:'← GOWN',   to:'gownroom', sx:9, sy:8}],
+};
+
+function roomFurniture() {
+  if(currentRoom==='gownroom') return GOWN_FURNITURE;
+  if(currentRoom==='office')   return OFFICE_FURNITURE;
+  return chambers;
+}
+
+function roomDoors() {
+  const exits = (ROOM_EXITS[currentRoom]||[]).map(e=>({c:e.c,r:e.r,label:e.label}));
+  if(currentRoom==='fab') return exits.concat([{c:9,r:0,label:'LOAD PORT'}]);
+  return exits;
+}
+
+function enterRoom(to, sx, sy) {
+  currentRoom = to;
+  px = sx; py = sy;
+  nearChamber = null; selId = null;
+  document.getElementById('sname').textContent = '방을 둘러보세요';
+  log('[ MOVE ] '+to.toUpperCase()+' 진입','li');
+}
 const lamps = [];
 for(let c=3;c<GC-1;c+=4) for(let r=2;r<GR-2;r+=4) lamps.push({c,r});
 
@@ -178,58 +239,65 @@ function drawCloudDecoration(cx2, cy2, w, alpha) {
 // ── DRAW FLOOR ──
 function drawFloorTile(c, r) {
   const x=ix(c,r), y=iy(c,r);
+  const cfg = ROOM_CFG[currentRoom];
   const isWall=(c===0||r===0||c===GC-1||r===GR-1);
-  const isDoor=doors.some(d=>d.c===c&&d.r===r);
-  const isConv=(r===9);
+  const allDoors = roomDoors();
+  const isDoor=allDoors.some(d=>d.c===c&&d.r===r);
+  const isConv=(r===9 && currentRoom==='fab');
 
   if(isConv) return;
 
-  const lb = lampBright(c,r);
+  const lb = currentRoom==='fab' ? lampBright(c,r) : 0.5;
 
   if(isWall && !isDoor) {
     const wh=20;
-    // left wall face
     ct.beginPath();
     ct.moveTo(x-TW/2,y+TH/2); ct.lineTo(x-TW/2,y+TH/2-wh);
     ct.lineTo(x,y-wh); ct.lineTo(x,y); ct.closePath();
-    ct.fillStyle='#0a0a1e'; ct.fill();
-    // right wall face
+    ct.fillStyle=cfg.wallL; ct.fill();
     ct.beginPath();
     ct.moveTo(x+TW/2,y+TH/2); ct.lineTo(x+TW/2,y+TH/2-wh);
     ct.lineTo(x,y-wh); ct.lineTo(x,y); ct.closePath();
-    ct.fillStyle='#080818'; ct.fill();
-    // top wall face
+    ct.fillStyle=cfg.wallR; ct.fill();
     ct.beginPath();
     ct.moveTo(x,y-wh); ct.lineTo(x+TW/2,y+TH/2-wh);
     ct.lineTo(x,y+TH-wh); ct.lineTo(x-TW/2,y+TH/2-wh); ct.closePath();
-    ct.fillStyle='#0d0d24'; ct.fill();
-    ct.strokeStyle='#1a1a38'; ct.lineWidth=0.6; ct.stroke();
-    // CloudClub logo on top wall tiles
-    if(r===0 && c%4===1) {
+    ct.fillStyle=cfg.wallT; ct.fill();
+    ct.strokeStyle=cfg.wallLine; ct.lineWidth=0.6; ct.stroke();
+    if(currentRoom==='fab' && r===0 && c%4===1) {
       drawCloudDecoration(x, y-wh-8, 22, 0.5);
+    }
+    // window on office north wall
+    if(currentRoom==='office' && r===0 && c%3===2 && c>1 && c<GC-2) {
+      ct.fillStyle='rgba(180,220,255,0.35)';
+      ct.fillRect(x-10, y-wh-16, 20, 12);
+      ct.strokeStyle='rgba(200,180,140,0.9)'; ct.lineWidth=0.8;
+      ct.strokeRect(x-10,y-wh-16,20,12);
+      ct.beginPath(); ct.moveTo(x,y-wh-16); ct.lineTo(x,y-wh-4); ct.stroke();
     }
   } else if(isDoor) {
     const dh=24;
+    const dobj=allDoors.find(d=>d.c===c&&d.r===r);
     ct.beginPath();
     ct.moveTo(x,y); ct.lineTo(x+TW/2,y+TH/2);
     ct.lineTo(x,y+TH); ct.lineTo(x-TW/2,y+TH/2); ct.closePath();
-    ct.fillStyle='#0a1a0e'; ct.fill();
+    ct.fillStyle=currentRoom==='office'?'#1a1408':'#0a1a0e'; ct.fill();
     ct.beginPath();
     ct.moveTo(x-TW/2,y+TH/2); ct.lineTo(x-TW/2,y+TH/2-dh);
     ct.lineTo(x,y-dh); ct.lineTo(x+TW/2,y+TH/2-dh); ct.lineTo(x+TW/2,y+TH/2); ct.closePath();
-    ct.strokeStyle='#33ff77'; ct.lineWidth=1.2; ct.stroke();
-    ct.fillStyle='#33ff7722'; ct.fill();
-    const dobj=doors.find(d=>d.c===c&&d.r===r);
-    ct.fillStyle='#33ff77'; ct.font='5px monospace'; ct.textAlign='center';
-    ct.fillText(dobj.label, x, y+TH/2-dh/2+2);
+    const dcol=currentRoom==='office'?'#ffcc44':'#33ff77';
+    ct.strokeStyle=dcol; ct.lineWidth=1.2; ct.stroke();
+    ct.fillStyle=dcol+'22'; ct.fill();
+    ct.fillStyle=dcol; ct.font='5px monospace'; ct.textAlign='center';
+    ct.fillText(dobj?dobj.label:'DOOR', x, y+TH/2-dh/2+2);
   } else {
     ct.beginPath();
     ct.moveTo(x,y); ct.lineTo(x+TW/2,y+TH/2);
     ct.lineTo(x,y+TH); ct.lineTo(x-TW/2,y+TH/2); ct.closePath();
     const bv = Math.round(lb*18);
-    const base = (c+r)%2===0 ? brt('#12122a',bv) : brt('#0f0f24',bv);
+    const base = (c+r)%2===0 ? brt(cfg.floorA,bv) : brt(cfg.floorB,bv);
     ct.fillStyle=base; ct.fill();
-    ct.strokeStyle='#0a0a1a'; ct.lineWidth=0.3; ct.stroke();
+    ct.strokeStyle=cfg.floorLine; ct.lineWidth=0.3; ct.stroke();
   }
 }
 
@@ -464,6 +532,146 @@ function drawMachine(ch) {
   }
 }
 
+// ── FURNITURE (gown room / office) ──
+function drawFurniturePiece(item) {
+  const x=ix(item.c,item.r), y=iy(item.c,item.r);
+  const isSel=selId===item.id;
+  const near=nearChamber&&nearChamber.id===item.id;
+
+  const BH = {PLANT:20, WHITEBOARD:38, SERVER:44, AIRSHOWER:50, LOCKER:42, SUIT:36, DESK:28}[item.type]||36;
+  const W2 = item.type==='WHITEBOARD'?TW*0.7:TW/2;
+
+  // shadow
+  ct.beginPath();
+  ct.moveTo(x,y+4); ct.lineTo(x+W2,y+TH/2+4);
+  ct.lineTo(x,y+TH+4); ct.lineTo(x-W2,y+TH/2+4); ct.closePath();
+  ct.fillStyle='rgba(0,0,0,0.25)'; ct.fill();
+
+  // LEFT FACE
+  ct.beginPath();
+  ct.moveTo(x-W2,y+TH/2); ct.lineTo(x-W2,y+TH/2-BH);
+  ct.lineTo(x,y-BH); ct.lineTo(x,y); ct.closePath();
+  ct.fillStyle=brt(item.col,-5); ct.fill();
+  ct.strokeStyle='rgba(0,0,0,0.3)'; ct.lineWidth=0.4; ct.stroke();
+
+  // RIGHT FACE
+  ct.beginPath();
+  ct.moveTo(x+W2,y+TH/2); ct.lineTo(x+W2,y+TH/2-BH);
+  ct.lineTo(x,y-BH); ct.lineTo(x,y); ct.closePath();
+  ct.fillStyle=brt(item.col,-18); ct.fill();
+  ct.strokeStyle='rgba(0,0,0,0.3)'; ct.lineWidth=0.4; ct.stroke();
+
+  // TOP FACE
+  ct.beginPath();
+  ct.moveTo(x,y-BH); ct.lineTo(x+W2,y+TH/2-BH);
+  ct.lineTo(x,y+TH-BH); ct.lineTo(x-W2,y+TH/2-BH); ct.closePath();
+  ct.fillStyle=item.top; ct.fill();
+  ct.strokeStyle='rgba(0,0,0,0.2)'; ct.lineWidth=0.4; ct.stroke();
+
+  // type-specific detail
+  if(item.type==='DESK') {
+    // monitor on top
+    ct.fillStyle='#111122'; ct.fillRect(x-8,y-BH-18,16,12);
+    ct.strokeStyle=item.acc; ct.lineWidth=0.8; ct.strokeRect(x-8,y-BH-18,16,12);
+    ct.fillStyle=item.acc+'44'; ct.fillRect(x-7,y-BH-17,14,10);
+    // scan line
+    const sl=(tick*0.3+item.id*7)%10;
+    ct.fillStyle=item.acc+'88'; ct.fillRect(x-7,y-BH-17+sl,14,1);
+    // stand
+    ct.fillStyle=brt(item.col,10); ct.fillRect(x-1,y-BH-6,2,6);
+  } else if(item.type==='LOCKER') {
+    // door handle
+    ct.fillStyle=item.acc;
+    ct.fillRect(x-W2+8,y+TH/2-BH/2-1,3,8);
+    // hinge lines
+    ct.strokeStyle=brt(item.col,20); ct.lineWidth=0.5;
+    ct.beginPath(); ct.moveTo(x-W2,y+TH/2-BH*0.33); ct.lineTo(x,y-BH*0.33); ct.stroke();
+    ct.beginPath(); ct.moveTo(x-W2,y+TH/2-BH*0.66); ct.lineTo(x,y-BH*0.66); ct.stroke();
+    // status light
+    ct.beginPath(); ct.arc(x-W2+5,y+TH/2-BH+5,3,0,Math.PI*2);
+    ct.fillStyle=item.acc; ct.fill();
+  } else if(item.type==='AIRSHOWER') {
+    // glass panels
+    ct.fillStyle='rgba(100,180,255,0.18)';
+    ct.fillRect(x-10,y-BH+4,20,BH-8);
+    ct.strokeStyle=item.acc; ct.lineWidth=0.8;
+    ct.strokeRect(x-10,y-BH+4,20,BH-8);
+    // air jets
+    for(let i=0;i<3;i++) {
+      const jp=(tick*0.5+i*3)%BH;
+      ct.fillStyle=`rgba(100,200,255,${0.6-jp/BH*0.6})`;
+      ct.beginPath(); ct.arc(x-8,y-BH+jp,1.5,0,Math.PI*2); ct.fill();
+      ct.beginPath(); ct.arc(x+8,y-BH+jp+2,1.5,0,Math.PI*2); ct.fill();
+    }
+  } else if(item.type==='SUIT') {
+    // hangers
+    for(let i=-1;i<=1;i++) {
+      ct.strokeStyle=item.acc; ct.lineWidth=1.2;
+      ct.beginPath(); ct.moveTo(x+i*8,y-BH); ct.lineTo(x+i*8,y-BH+8); ct.stroke();
+      ct.beginPath(); ct.arc(x+i*8,y-BH+8,4,0,Math.PI,true); ct.stroke();
+      // suit silhouette
+      ct.fillStyle=brt(item.col,30)+'88';
+      ct.fillRect(x+i*8-4,y-BH+12,8,14);
+    }
+    ct.strokeStyle=brt(item.col,30); ct.lineWidth=0.5;
+    ct.beginPath(); ct.moveTo(x-W2+2,y-BH); ct.lineTo(x+W2-2,y+TH/2-BH); ct.stroke();
+  } else if(item.type==='SERVER') {
+    // rack units
+    for(let u=0;u<5;u++) {
+      const uy=y-BH+6+u*8;
+      ct.fillStyle='#000a14'; ct.fillRect(x-12,uy,24,6);
+      ct.strokeStyle=item.acc+'66'; ct.lineWidth=0.4; ct.strokeRect(x-12,uy,24,6);
+      // blink LED
+      const on=(tick+u*7)%30<15;
+      ct.fillStyle=on?item.acc:'#001a28';
+      ct.fillRect(x+8,uy+2,3,2);
+    }
+  } else if(item.type==='PLANT') {
+    // pot
+    ct.fillStyle='#663322'; ct.fillRect(x-6,y-BH+BH-8,12,8);
+    ct.strokeStyle='#442211'; ct.lineWidth=0.5; ct.strokeRect(x-6,y-BH+BH-8,12,8);
+    // leaves
+    for(let l=0;l<5;l++) {
+      const angle=(l/5)*Math.PI*2+(tick*0.005);
+      const lx=x+Math.cos(angle)*10, ly=y-BH+BH/2+Math.sin(angle)*5;
+      ct.fillStyle=brt(item.acc,-30+(tick*0.02+l)%20|0)+'cc';
+      ct.beginPath(); ct.ellipse(lx,ly,6,3,angle,0,Math.PI*2); ct.fill();
+    }
+    ct.fillStyle=item.acc;
+    ct.beginPath(); ct.arc(x,y-BH+BH*0.3,5,0,Math.PI*2); ct.fill();
+  } else if(item.type==='WHITEBOARD') {
+    // board surface
+    ct.fillStyle='#f0f0f8'; ct.fillRect(x-20,y-BH+2,40,BH-8);
+    ct.strokeStyle=item.acc; ct.lineWidth=0.8; ct.strokeRect(x-20,y-BH+2,40,BH-8);
+    // diagram lines
+    ct.strokeStyle='#4466cc88'; ct.lineWidth=0.8;
+    ct.beginPath(); ct.moveTo(x-14,y-BH+10); ct.lineTo(x+6,y-BH+10); ct.stroke();
+    ct.beginPath(); ct.moveTo(x-14,y-BH+18); ct.lineTo(x+10,y-BH+18); ct.stroke();
+    ct.beginPath(); ct.moveTo(x-14,y-BH+26); ct.lineTo(x+0,y-BH+26); ct.stroke();
+    ct.fillStyle='#cc4444'; ct.beginPath(); ct.arc(x+12,y-BH+22,3,0,Math.PI*2); ct.fill();
+  }
+
+  // label
+  ct.textAlign='center'; ct.font='bold 5.5px monospace';
+  ct.fillStyle=isSel?'#ffe066':brt(item.acc,10);
+  ct.fillText(item.label, x, y-BH-12);
+  ct.font='4.5px monospace'; ct.fillStyle=brt(item.acc,-20)+'aa';
+  ct.fillText(item.type, x, y-BH-4);
+
+  if(near) {
+    ct.font='bold 7px monospace'; ct.fillStyle='#ffe066';
+    ct.fillText('▼ SPACE', x, y-BH-26);
+    ct.strokeStyle='#ffe06644'; ct.lineWidth=1.5;
+    ct.strokeRect(x-22,y-BH-34,44,12);
+  }
+  if(isSel) {
+    ct.beginPath();
+    ct.moveTo(x,y); ct.lineTo(x+W2,y+TH/2);
+    ct.lineTo(x,y+TH); ct.lineTo(x-W2,y+TH/2); ct.closePath();
+    ct.strokeStyle='#ffe06688'; ct.lineWidth=2; ct.stroke();
+  }
+}
+
 // ── MAPLE CHARACTER (canvas-drawn) ──
 function drawPlayer() {
   const x=ix(px,py), y=iy(px,py);
@@ -620,21 +828,27 @@ function drawPlayer() {
 function drawMinimap() {
   if(!showMinimap) return;
   const mw=140, mh=100, mx=cv.width-mw-10, my=10;
+  const cfg=ROOM_CFG[currentRoom];
   ct.fillStyle='rgba(0,4,16,0.92)'; ct.fillRect(mx,my,mw,mh);
   ct.strokeStyle='#4a9eff'; ct.lineWidth=1; ct.strokeRect(mx,my,mw,mh);
   ct.fillStyle='#4a9eff'; ct.font='5px monospace'; ct.textAlign='left';
-  ct.fillText('MINIMAP [Tab]',mx+4,my+9);
+  ct.fillText('MINIMAP [Tab] — '+currentRoom.toUpperCase(),mx+4,my+9);
   const sx=mw/GC, sy=(mh-14)/GR;
   for(let r=0;r<GR;r++) for(let c=0;c<GC;c++) {
     const isWall=(c===0||r===0||c===GC-1||r===GR-1);
-    ct.fillStyle=isWall?'#1a1a40':'#10101c';
+    ct.fillStyle=isWall?brt(cfg.wallT,-30):brt(cfg.floorA,-20);
     ct.fillRect(mx+c*sx,my+14+r*sy,sx-0.5,sy-0.5);
   }
-  chambers.forEach(ch=>{
-    ct.fillStyle=alarmSet.has(ch.id)?'#ff4444':ch.acc;
-    ct.fillRect(mx+ch.c*sx,my+14+ch.r*sy,sx*1.5,sy*1.5);
+  // exits
+  roomDoors().forEach(d=>{
+    ct.fillStyle='#33ff77';
+    ct.fillRect(mx+d.c*sx-1,my+14+d.r*sy-1,sx+2,sy+2);
   });
-  // player dot
+  // furniture/chambers
+  roomFurniture().forEach(item=>{
+    ct.fillStyle=alarmSet.has(item.id)?'#ff4444':item.acc;
+    ct.fillRect(mx+item.c*sx,my+14+item.r*sy,sx*1.5,sy*1.5);
+  });
   ct.beginPath(); ct.arc(mx+px*sx,my+14+py*sy,3,0,Math.PI*2);
   ct.fillStyle='#ffe066'; ct.fill();
 }
@@ -650,15 +864,19 @@ function updateCamera() {
 // ── COLLISION ──
 function checkNear() {
   nearChamber = null;
-  chambers.forEach(ch=>{
-    if(Math.hypot(px-ch.c,py-ch.r)<1.6) nearChamber=ch;
+  roomFurniture().forEach(item=>{
+    if(Math.hypot(px-item.c,py-item.r)<1.6) nearChamber=item;
   });
   const tip=document.getElementById('tip');
   if(nearChamber) {
     selId=nearChamber.id;
-    document.querySelectorAll('.ctab').forEach(b=>b.classList.toggle('sel',parseInt(b.dataset.id)===nearChamber.id));
-    document.getElementById('sname').textContent=nearChamber.name+' ['+nearChamber.type+'] — Space로 공정 실행';
-    tip.textContent=nearChamber.name+': '+nearChamber.desc;
+    if(currentRoom==='fab') {
+      document.querySelectorAll('.ctab').forEach(b=>b.classList.toggle('sel',parseInt(b.dataset.id)===nearChamber.id));
+      document.getElementById('sname').textContent=nearChamber.name+' ['+nearChamber.type+'] — Space로 공정 실행';
+    } else {
+      document.getElementById('sname').textContent=nearChamber.label+' ['+nearChamber.type+']';
+    }
+    tip.textContent=(nearChamber.desc||nearChamber.label||nearChamber.name);
     tip.style.display='block';
   } else {
     tip.style.display='none';
@@ -668,26 +886,32 @@ function checkNear() {
 // ── INPUT ──
 function handleInput() {
   let dx=0, dy=0;
-  // Correct isometric directional mapping:
-  // Screen UP → iso NW → c--, r--  (both decrease)
-  // Screen DOWN → iso SE → c++, r++
-  // Screen LEFT → iso SW → c--, r++
-  // Screen RIGHT → iso NE → c++, r--
   if(keys['ArrowUp']   ||keys['w']){dx-=SPEED;dy-=SPEED;}
   if(keys['ArrowDown'] ||keys['s']){dx+=SPEED;dy+=SPEED;}
   if(keys['ArrowLeft'] ||keys['a']){dx-=SPEED;dy+=SPEED;}
   if(keys['ArrowRight']||keys['d']){dx+=SPEED;dy-=SPEED;}
 
-  const nx=Math.max(1,Math.min(GC-2,px+dx));
-  const ny=Math.max(1,Math.min(GR-2,py+dy));
-  const blocked=chambers.some(ch=>Math.hypot(nx-ch.c,ny-ch.r)<0.85);
-  if(!blocked) { px=nx; py=ny; }
+  const nx=px+dx, ny=py+dy;
+
+  // door transition: player walks into a wall exit
+  for(const exit of (ROOM_EXITS[currentRoom]||[])) {
+    if(Math.hypot(nx-exit.c,ny-exit.r)<1.1) {
+      enterRoom(exit.to, exit.sx, exit.sy);
+      return;
+    }
+  }
+
+  const cx=Math.max(1,Math.min(GC-2,nx));
+  const cy=Math.max(1,Math.min(GR-2,ny));
+  const blocked=roomFurniture().some(item=>Math.hypot(cx-item.c,cy-item.r)<0.85);
+  if(!blocked) { px=cx; py=cy; }
 }
 
 // ── MAIN RENDER ──
 function render() {
+  const cfg = ROOM_CFG[currentRoom];
   ct.clearRect(0,0,cv.width,cv.height);
-  ct.fillStyle='#05050f'; ct.fillRect(0,0,cv.width,cv.height);
+  ct.fillStyle=cfg.bg; ct.fillRect(0,0,cv.width,cv.height);
 
   handleInput();
   updateCamera();
@@ -696,24 +920,22 @@ function render() {
   ct.save();
   ct.translate(camX, camY);
 
-  // ambient ceiling clouds (parallax, behind everything)
-  drawAmbientClouds();
+  if(currentRoom==='fab') drawAmbientClouds();
 
-  // floor (back to front)
   for(let r=0;r<GR;r++) for(let c=0;c<GC;c++) drawFloorTile(c,r);
 
-  // conveyor
-  drawConveyor(9);
+  if(currentRoom==='fab') {
+    drawConveyor(9);
+    drawPipes();
+    lamps.forEach(l=>drawLamp(l.c,l.r));
+  }
 
-  // pipes
-  drawPipes();
-
-  // lamps
-  lamps.forEach(l=>drawLamp(l.c,l.r));
-
-  // depth sort
+  const fur=roomFurniture();
+  const drawFn = currentRoom==='fab'
+    ? item=>drawMachine(item)
+    : item=>drawFurniturePiece(item);
   const objs=[
-    ...chambers.map(ch=>({d:ch.c+ch.r,fn:()=>drawMachine(ch)})),
+    ...fur.map(item=>({d:item.c+item.r, fn:()=>drawFn(item)})),
     {d:px+py, fn:()=>drawPlayer()},
   ];
   objs.sort((a,b)=>a.d-b.d);
@@ -721,12 +943,14 @@ function render() {
 
   ct.restore();
 
-  // minimap (screen space, no camera)
   drawMinimap();
 
-  // HUD tick
+  // HUD
   document.getElementById('h-tmp').textContent=(318+Math.round(Math.sin(tick*0.04)*6))+'°C';
   document.getElementById('h-prs').textContent=(2.10+Math.sin(tick*0.05)*0.09).toFixed(2)+'Pa';
+  // room indicator in title
+  const roomLabel={'fab':'CLEAN ROOM 7F','gownroom':'GOWN ROOM','office':'OFFICE'}[currentRoom];
+  document.querySelector('.htitle').textContent='☁ FAB WORLD — CloudClub '+roomLabel;
 
   tick++;
   requestAnimationFrame(render);
@@ -739,8 +963,14 @@ document.addEventListener('keydown',e=>{
   if(e.key==='Tab'){e.preventDefault();showMinimap=!showMinimap;}
   if(e.key===' '&&nearChamber){
     selId=nearChamber.id;
-    document.getElementById('sname').textContent=nearChamber.name+' ['+nearChamber.type+'] — 공정을 선택하세요';
-    log('INTERACT | '+nearChamber.name+' 접근','li');
+    if(currentRoom==='fab') {
+      document.getElementById('sname').textContent=nearChamber.name+' ['+nearChamber.type+'] — 공정을 선택하세요';
+      log('INTERACT | '+nearChamber.name+' 접근','li');
+    } else {
+      const label=nearChamber.label||nearChamber.name;
+      document.getElementById('sname').textContent=label+' ['+nearChamber.type+']';
+      log('INTERACT | '+label,'li');
+    }
   }
 });
 document.addEventListener('keyup',e=>keys[e.key]=false);
@@ -797,6 +1027,7 @@ async function sendEvent(payload) {
 
 function doNormal(){
   if(selId===null){log('Chamber를 먼저 선택하세요','li');return;}
+  if(currentRoom!=='fab'){log('FAB 내부에서만 공정 실행 가능','li');return;}
   const ch=chambers[selId];
   alarmSet.delete(selId);
   document.querySelectorAll('.ctab').forEach(b=>{if(parseInt(b.dataset.id)===selId)b.classList.remove('err');});
@@ -821,6 +1052,7 @@ function doNormal(){
 
 function doAnomaly(){
   if(selId===null){log('Chamber를 먼저 선택하세요','li');return;}
+  if(currentRoom!=='fab'){log('FAB 내부에서만 이상 주입 가능','li');return;}
   const ch=chambers[selId];
   alarmSet.add(selId);
   document.querySelectorAll('.ctab').forEach(b=>{if(parseInt(b.dataset.id)===selId)b.classList.add('err');});
@@ -843,6 +1075,38 @@ function doAnomaly(){
 }
 
 function clearLog(){document.getElementById('logbox').innerHTML='<div class="li">[ 클리어 ]</div>';}
+
+// ── BGM ──
+const bgm = document.getElementById('bgm');
+const bgmBtn = document.getElementById('bgm-btn');
+bgm.volume = 0.35;
+let bgmStarted = false;
+
+function startBgm() {
+  if (!bgmStarted) {
+    bgm.play().catch(()=>{});
+    bgmStarted = true;
+    bgmBtn.classList.add('on');
+    bgmBtn.textContent = '♪ BGM ON';
+  }
+}
+
+bgmBtn.addEventListener('click', (e) => {
+  e.stopPropagation();
+  if (bgm.paused) {
+    bgm.play();
+    bgmBtn.classList.add('on');
+    bgmBtn.textContent = '♪ BGM ON';
+  } else {
+    bgm.pause();
+    bgmBtn.classList.remove('on');
+    bgmBtn.textContent = '♪ BGM';
+  }
+});
+
+// 첫 클릭 시 자동 시작 (브라우저 자동재생 정책 우회)
+document.addEventListener('click', startBgm, { once: true });
+document.addEventListener('keydown', startBgm, { once: true });
 
 render();
 </script>
