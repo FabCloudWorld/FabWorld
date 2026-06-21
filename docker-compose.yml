@@ -93,6 +93,13 @@ services:
     ports:
       - "8123:8123"   # HTTP (친구 연동: localhost:8123)
       - "9000:9000"   # Native TCP
+    environment:
+      # 엔트리포인트가 시작 시 이 유저를 생성하고 기본 default 유저는 제거함.
+      # Grafana 데이터소스(grafana/fab123) 및 consumer/processor가 동일 계정 사용.
+      CLICKHOUSE_USER: grafana
+      CLICKHOUSE_PASSWORD: fab123
+      CLICKHOUSE_DB: fabworld
+      CLICKHOUSE_DEFAULT_ACCESS_MANAGEMENT: 1   # CREATE USER/GRANT 등 권한 관리 허용
     volumes:
       - clickhouse-data:/var/lib/clickhouse
       - ./clickhouse:/docker-entrypoint-initdb.d:ro   # 친구의 init.sql 자동 실행
